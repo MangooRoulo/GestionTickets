@@ -17,9 +17,7 @@ function isReOpenStatus($status) {
     return false;
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// GET: Retornar tickets con datos de gestión del día solicitado
-// ══════════════════════════════════════════════════════════════════════════════
+// Retornar tickets con datos de gestión del día solicitado
 if ($method === 'GET') {
     // Fecha solicitada: parámetro opcional, por defecto hoy
     $fecha = $_GET['fecha'] ?? date('Y-m-d');
@@ -55,9 +53,7 @@ if ($method === 'GET') {
     jsonResponse(['tickets' => $ticketsList, 'total_activos' => $totalActivos]);
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
 // POST: Importar lote de tickets desde Excel (sync/merge)
-// ══════════════════════════════════════════════════════════════════════════════
 if ($method === 'POST') {
     $input      = getJsonInput();
     $ticketsData = $input['tickets'] ?? [];
@@ -97,7 +93,6 @@ if ($method === 'POST') {
             $ticketId = intval(explode('.', strval($t['id'] ?? '0'))[0]);
             if ($ticketId <= 0) continue;
 
-            // ... (resto de la lógica de merge se mantiene igual) ...
             // [Nota: Mantengo la lógica de consulta para detectar cambios]
             $stmtEx = $pdo->prepare("SELECT * FROM tickets WHERE id = :id");
             $stmtEx->execute(['id' => $ticketId]);
@@ -171,10 +166,8 @@ if ($method === 'POST') {
     }
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// PUT: Actualizar tiempo o estado de gestión de un ticket
-//      Escribe en gestion_diaria para HOY (registro inmutable por día)
-// ══════════════════════════════════════════════════════════════════════════════
+// Actualizar tiempo o estado de gestión de un ticket
+// Escribe en gestion_diaria para HOY (registro inmutable por día)
 if ($method === 'PUT') {
     $id = $_GET['id'] ?? null;
     if (!$id) jsonResponse(['error' => 'ID requerido'], 400);
