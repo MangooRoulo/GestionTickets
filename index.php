@@ -69,6 +69,7 @@
             <button class="tab-btn" data-view="estados-section">Configuración</button>
             <button class="tab-btn" data-view="historial-section">Historial</button>
             <button class="tab-btn" data-view="ticket-insight-section">🔍 Rastreo de Ticket</button>
+            <button class="tab-btn" data-view="mensual-section">Resumen Mensual</button>
         </div>
 
         <!-- VISTA: Dashboard -->
@@ -135,6 +136,11 @@
                 <div style="display:flex;align-items:center;gap:0.5rem;margin-left:auto;">
                     <input type="checkbox" id="show-managed" style="width:18px;height:18px;cursor:pointer;">
                     <label for="show-managed" style="font-size:0.9rem;font-weight:500;cursor:pointer;color:var(--text-secondary);">Ver gestionados</label>
+                    
+                    <div style="width:1px; height:20px; background:var(--border-color); margin:0 8px;"></div>
+                    
+                    <input type="checkbox" id="filter-worked-only" style="width:18px;height:18px;cursor:pointer;">
+                    <label for="filter-worked-only" style="font-size:0.9rem;font-weight:700;cursor:pointer;color:var(--accent-primary);">Solo trabajados</label>
                 </div>
             </div>
             <div class="table-responsive">
@@ -229,45 +235,70 @@
             </div>
             
             <div id="insight-results" style="display:none;">
-                <div class="metrics-grid" style="margin-bottom:2rem;">
-                    <div class="kpi-card" style="border-left: 4px solid var(--accent-primary);">
-                        <div class="kpi-title">Días Intervenidos</div>
-                        <div class="kpi-value" id="insight-kpi-dias" style="color:var(--accent-primary)">0</div>
-                        <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.5rem;">Sesiones únicas de trabajo</div>
-                    </div>
-                    <div class="kpi-card" style="border-left: 4px solid var(--status-corregido);">
-                        <div class="kpi-title">Tiempo Total Dedicado</div>
-                        <div class="kpi-value" id="insight-kpi-dedicado" style="color:var(--status-corregido)">0h</div>
-                        <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.5rem;">Acumulado histórico</div>
-                    </div>
-                    <div class="kpi-card" style="border-left: 4px solid var(--status-enproceso);">
-                        <div class="kpi-title">Tiempo Estimado</div>
-                        <div class="kpi-value" id="insight-kpi-estimado" style="color:var(--status-enproceso)">0h</div>
-                        <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.5rem;">Última estimación cargada</div>
-                    </div>
-                    <div class="kpi-card" style="border-left: 4px solid var(--status-reabierto);">
-                        <div class="kpi-title">Estado Actual</div>
-                        <div class="kpi-value" id="insight-kpi-estado" style="font-size:1.6rem; color:var(--text-primary); padding-top:0.5rem;">-</div>
-                        <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:0.8rem;">Situación en vivo</div>
+                <!-- Nuevo Header de Ticket -->
+                <div class="insight-header-card">
+                    <div class="insight-header-main">
+                        <div class="insight-ticket-badge">#<span id="insight-header-id">-</span></div>
+                        <div class="insight-title-group">
+                            <h2 id="insight-header-resumen" class="insight-resumen">Cargando...</h2>
+                            <div class="insight-meta-info">
+                                <span class="insight-meta-item">📦 <strong id="insight-header-modulo">-</strong></span>
+                                <span class="insight-meta-item">🏢 <strong id="insight-header-cliente">-</strong></span>
+                                <span class="insight-meta-item">🛠️ <strong id="insight-header-tipo">-</strong></span>
+                            </div>
+                        </div>
+                        <div id="insight-header-gravedad" class="badge">GRAVEDAD</div>
                     </div>
                 </div>
 
-                <div class="chart-grid-top" style="grid-template-columns: 2fr 1fr; margin-bottom: 2rem;">
-                    <div class="chart-container" style="min-height:300px;">
-                        <div class="chart-title">Tiempos Dedicados (Línea de Tiempo)</div>
+                <div class="metrics-grid" style="margin-bottom:2rem;">
+                    <div class="kpi-card insight-kpi" style="border-left: 4px solid var(--accent-primary);">
+                        <div class="kpi-title">Sesiones de Trabajo</div>
+                        <div class="kpi-value" id="insight-kpi-dias" style="color:var(--accent-primary)">0</div>
+                        <div class="kpi-sub">Días distintos con actividad</div>
+                    </div>
+                    <div class="kpi-card insight-kpi" style="border-left: 4px solid var(--status-corregido);">
+                        <div class="kpi-title">Inversión de Tiempo</div>
+                        <div class="kpi-value" id="insight-kpi-dedicado" style="color:var(--status-corregido)">0h</div>
+                        <div class="kpi-sub">Total acumulado histórico</div>
+                    </div>
+                    <div class="kpi-card insight-kpi" style="border-left: 4px solid var(--status-enproceso);">
+                        <div class="kpi-title">Última Estimación</div>
+                        <div class="kpi-value" id="insight-kpi-estimado" style="color:var(--status-enproceso)">0h</div>
+                        <div class="kpi-sub">Tiempo previsto de resolución</div>
+                    </div>
+                    <div class="kpi-card insight-kpi" style="border-left: 4px solid var(--accent-secondary);">
+                        <div class="kpi-title">Estado de Gestión</div>
+                        <div class="kpi-value" id="insight-kpi-estado" style="font-size:1.6rem; color:var(--text-primary); padding-top:0.5rem;">-</div>
+                        <div class="kpi-sub">Situación actual del sistema</div>
+                    </div>
+                </div>
+
+                <div class="chart-grid-top" style="grid-template-columns: 2fr 1fr; margin-bottom: 2rem; gap:20px;">
+                    <div class="chart-container insight-chart" style="min-height:350px;">
+                        <div class="chart-title">Cronología de Esfuerzo (Minutos)</div>
                         <canvas id="chart-insight-tiempos"></canvas>
                     </div>
-                    <div class="chart-container" style="min-height:300px;">
-                        <div class="chart-title">Variación de Estados Base</div>
+                    <div class="chart-container insight-chart" style="min-height:350px;">
+                        <div class="chart-title">Frecuencia de Estados</div>
                         <canvas id="chart-insight-estados"></canvas>
                     </div>
                 </div>
 
-                <div class="config-card">
-                    <h2 class="section-title">Log de Eventos (Solo para este ID)</h2>
+                <div class="config-card insight-log-card">
+                    <div class="insight-log-header">
+                        <h2 class="section-title">Historial Detallado de Eventos</h2>
+                        <p class="section-desc">Auditoría completa de cambios realizados específicamente sobre este ticket.</p>
+                    </div>
                     <div class="table-responsive">
-                        <table>
-                            <thead><tr><th>Fecha</th><th>Campo</th><th>Acción</th></tr></thead>
+                        <table class="insight-log-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha y Hora</th>
+                                    <th>Concepto</th>
+                                    <th>Detalle de la Acción</th>
+                                </tr>
+                            </thead>
                             <tbody id="insight-historial-body"></tbody>
                         </table>
                     </div>
@@ -287,6 +318,87 @@
                             <span id="insight-log-info" style="font-size:0.85rem; color:var(--text-secondary); font-weight:500;">Mostrando 0 registros</span>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- VISTA: Resumen Mensual (Rediseñado) -->
+        <section id="mensual-section" class="view-section">
+            <div class="search-filters" style="margin-bottom:1.5rem; display:flex; gap:12px; align-items:center;">
+                <select id="mensual-month-filter" class="search-input" style="width:220px; font-weight:700; border: 2px solid var(--accent-primary);"></select>
+                <div style="flex:1; text-align:right; font-size:0.9rem; color:var(--text-secondary); font-weight:500;">
+                    📊 Panel de Inteligencia Mensual
+                </div>
+            </div>
+
+            <!-- Insights Grid -->
+            <div class="metrics-grid" style="margin-bottom:2rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+                <div class="kpi-card" style="border-top: 4px solid var(--accent-primary);">
+                    <div class="kpi-title">Capacidad Total</div>
+                    <div class="kpi-value" id="res-kpi-importados">0</div>
+                    <div class="kpi-desc">Tickets en el radar</div>
+                </div>
+                <div class="kpi-card" style="border-top: 4px solid var(--status-corregido);">
+                    <div class="kpi-title">Gestión Efectiva</div>
+                    <div class="kpi-value" id="res-kpi-trabajados">0</div>
+                    <div class="kpi-desc">Tickets con acción real</div>
+                </div>
+                <div class="kpi-card" style="border-top: 4px solid var(--status-enproceso);">
+                    <div class="kpi-title">Eficiencia (Ratio)</div>
+                    <div class="kpi-value" id="res-kpi-ratio">0%</div>
+                    <div class="kpi-desc">Efectividad de cierre</div>
+                </div>
+                <div class="kpi-card" style="border-top: 4px solid var(--status-reabierto);">
+                    <div class="kpi-title">Carga de Defectos</div>
+                    <div class="kpi-value" id="res-kpi-defectos">0</div>
+                    <div class="kpi-desc">Bugs corregidos</div>
+                </div>
+                <div class="kpi-card" style="border-top: 4px solid var(--status-espera);">
+                    <div class="kpi-title">Retraso Promedio</div>
+                    <div class="kpi-value" id="res-kpi-stale">0d</div>
+                    <div class="kpi-desc">Días desde derivación</div>
+                </div>
+            </div>
+
+            <div class="chart-grid-top" style="grid-template-columns: 2fr 1fr; margin-bottom: 2rem; gap:20px;">
+                <div class="chart-container" style="min-height:350px;">
+                    <div class="chart-title">Tendencia de Trabajo Diaria (Hitos)</div>
+                    <canvas id="chart-mensual-trend"></canvas>
+                </div>
+                <div class="chart-container" style="min-height:350px;">
+                    <div class="chart-title">Distribución de Solicitudes</div>
+                    <canvas id="chart-mensual-tipos"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-grid-bottom" style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:2rem;">
+                <div class="chart-container" style="min-height:300px;">
+                    <div class="chart-title">Progreso Semanal (Importados vs Trabajados)</div>
+                    <canvas id="chart-mensual-semanal"></canvas>
+                </div>
+                <div class="chart-container" style="min-height:300px;">
+                    <div class="chart-title">Patrón de Productividad por Día</div>
+                    <canvas id="chart-mensual-patron"></canvas>
+                </div>
+            </div>
+            
+            <div class="config-card">
+                <h2 class="section-title">Detalle Semanal del Mes</h2>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Semana</th>
+                                <th>Rango</th>
+                                <th>Importados</th>
+                                <th>Trabajados</th>
+                                <th>Defectos</th>
+                                <th>Requerimientos</th>
+                                <th>Incidencia de Bugs (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mensual-table-body"></tbody>
+                    </table>
                 </div>
             </div>
         </section>

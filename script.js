@@ -4,6 +4,7 @@ let estados = [];
 let staleDaysLimit = 7;
 let editMode = false; // Modo Restauración
 let showManaged = false;
+let showWorkedOnly = false;
 let selectedDate = '';
 let charts = {};
 let totalActivosFecha = 0; // Total de tickets importados en la fecha seleccionada
@@ -109,6 +110,7 @@ const modal = document.getElementById('export-modal');
 const closeModal = document.getElementById('close-modal');
 const exportText = document.getElementById('export-text');
 const copyBtn = document.getElementById('copy-report');
+const showWorkedOnlyCheckbox = document.getElementById('filter-worked-only');
 
 // Inicialización principal
 async function init() {
@@ -194,6 +196,14 @@ async function init() {
     // Listener: mostrar gestionados
     showManagedCheckbox.addEventListener('change', (e) => { showManaged = e.target.checked; renderTable(); });
 
+    // Listener: solo trabajados
+    if (showWorkedOnlyCheckbox) {
+        showWorkedOnlyCheckbox.addEventListener('change', (e) => {
+            showWorkedOnly = e.target.checked;
+            renderTable();
+        });
+    }
+
     // Listener: días límite
     staleLimitInput.addEventListener('input', (e) => {
         staleDaysLimit = parseInt(e.target.value) || 7;
@@ -234,6 +244,12 @@ async function init() {
             if (e.key === 'Enter') resetAndLoadInsight();
         });
     }
+
+    // Listeners: Filtros de Resumen Mensual
+    const monthFilter = document.getElementById('mensual-month-filter');
+    const modeFilter = document.getElementById('mensual-mode-filter');
+    if (monthFilter) monthFilter.addEventListener('change', renderMensualDashboard);
+    if (modeFilter) modeFilter.addEventListener('change', renderMensualDashboard);
 }
 
 // Cargar estados de gestión desde la BD
@@ -301,6 +317,7 @@ tabBtns.forEach(btn => {
         btn.classList.add('active');
         document.getElementById(btn.dataset.view).classList.add('active');
         if (btn.dataset.view === 'dashboard') renderDashboard();
+        if (btn.dataset.view === 'mensual-section') renderMensualDashboard();
         if (btn.dataset.view === 'estados-section') renderEstadosUI();
         if (btn.dataset.view === 'historial-section') loadHistorial();
     });
@@ -596,7 +613,7 @@ function updateKPIs() {
         const staleCount = activosHoy.filter(t => t.dias_ultima_derivacion >= staleDaysLimit).length;
 
         if (totalEl) {
-            totalEl.innerText = activosHoy.length; // Cambiado para mostrar la meta total (impo)
+            totalEl.innerText = pendingCount;
             totalEl.style.color = 'var(--status-reabierto)';
             if (totalEl.parentElement) {
                 totalEl.parentElement.style.border = '1px solid var(--status-reabierto)';
@@ -629,17 +646,27 @@ function renderTable() {
     const filtered = tickets.filter(t => {
         const pId = getPendienteId();
         const effectivelyManaged = t.gd_fue_gestionado == 1 && t.gd_estado_gestion_id != pId;
-        if (dMode) {
-            if (!t.tad_id) return false;
-            if (!showManaged && effectivelyManaged) return false;
+        const isWorked = t.gd_fue_gestionado == 1 || parseFloat(t.gd_tiempo_dedicado) > 0 || parseFloat(t.gd_tiempo_estimado) > 0 || t.gd_en_proceso == 1;
+
+        // Lógica de "Solo Trabajados"
+        if (showWorkedOnly) {
+            if (!isWorked) return false;
+            // Si es un ticket trabajado y queremos ver "Solo trabajados", ignoramos el resto de filtros de visibilidad (managed/activo)
+            // solo aplicamos los filtros de búsqueda y dropdowns más abajo.
         } else {
-            // MODO HOY: Si está 'en proceso', SIEMPRE es visible (no importa showManaged)
-            if (t.gd_en_proceso == 1) {
-                // Forzar visibilidad
-            } else {
-                const visible = t.es_activo == 1 || t.gd_fue_gestionado == 1 || parseFloat(t.gd_tiempo_dedicado) > 0 || parseFloat(t.gd_tiempo_estimado) > 0;
-                if (!visible) return false;
+            // Lógica normal de visibilidad cuando NO está activado "Solo Trabajados"
+            if (dMode) {
+                if (!t.tad_id) return false;
                 if (!showManaged && effectivelyManaged) return false;
+            } else {
+                // MODO HOY: Si está 'en proceso', SIEMPRE es visible (no importa showManaged)
+                if (t.gd_en_proceso == 1) {
+                    // Forzar visibilidad
+                } else {
+                    const visible = t.es_activo == 1 || t.gd_fue_gestionado == 1 || parseFloat(t.gd_tiempo_dedicado) > 0 || parseFloat(t.gd_tiempo_estimado) > 0;
+                    if (!visible) return false;
+                    if (!showManaged && effectivelyManaged) return false;
+                }
             }
         }
         // Filtros de búsqueda
@@ -1090,7 +1117,8 @@ async function createHistoricoChart() {
                     label: 'Gestión Manual',
                     data: data,
                     borderColor: '#6366f1',
-                    fill: true
+                    fill: true,
+                    tension: 0.4
                 }]
             },
             options: { responsive: true, maintainAspectRatio: false }
@@ -1381,11 +1409,26 @@ window.loadTicketInsight = async function() {
         // Renderizar la vista
         document.getElementById('insight-results').style.display = 'block';
 
-        // 1. KPIs
+        // 1. Header y KPIs
+        document.getElementById('insight-header-id').innerText = res.ticket.id;
+        document.getElementById('insight-header-resumen').innerText = res.ticket.resumen || 'Sin resumen';
+        document.getElementById('insight-header-modulo').innerText = res.ticket.modulo || '-';
+        document.getElementById('insight-header-cliente').innerText = res.ticket.cliente || '-';
+        document.getElementById('insight-header-tipo').innerText = res.ticket.tipo_solicitud || '-';
+        
+        const gravBadge = document.getElementById('insight-header-gravedad');
+        gravBadge.innerText = res.ticket.gravedad || 'No definida';
+        gravBadge.className = 'badge ' + getGravedadClass(res.ticket.gravedad);
+
         document.getElementById('insight-kpi-dias').innerText = res.totales.dias_distintos;
         document.getElementById('insight-kpi-dedicado').innerText = formatHoursToText(res.totales.tiempo_dedicado_total);
         document.getElementById('insight-kpi-estimado').innerText = formatHoursToText(res.totales.tiempo_estimado_actual);
-        document.getElementById('insight-kpi-estado').innerText = res.ticket.estado_gestion_nombre || 'Desconocido';
+        
+        const statusVal = document.getElementById('insight-kpi-estado');
+        statusVal.innerText = res.ticket.estado_gestion_nombre || 'Pendiente';
+        
+        const activeState = estados.find(e => e.nombre === (res.ticket.estado_gestion_nombre || 'Pendiente'));
+        if (activeState) statusVal.style.color = activeState.color;
 
         // 2. Gráficas
         renderInsightCharts(res.dias_trabajados, res.auditoria);
@@ -1399,7 +1442,7 @@ window.loadTicketInsight = async function() {
         renderPaginationInsight(insightLogTotal, limit, insightLogOffset);
 
         if (!res.auditoria || res.auditoria.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Sin registro de auditoría</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:3rem; color:var(--text-secondary);">No hay registros de auditoría para este ticket</td></tr>';
         } else {
             tbody.innerHTML = res.auditoria.map(h => {
              let accionTexto = '';
@@ -1409,30 +1452,29 @@ window.loadTicketInsight = async function() {
              if (h.campo_modificado.startsWith('estado_gestion_id')) {
                  const ePrev = estados.find(s => s.id == prev);
                  const eNew = estados.find(s => s.id == newV);
-                 accionTexto = `${ePrev ? ePrev.nombre : (prev || 'Pendiente')} ➔ ${eNew ? eNew.nombre : newV}`;
+                 accionTexto = `<span style="color:var(--text-secondary)">${ePrev ? ePrev.nombre : 'Inicio'}</span> <strong style="color:var(--accent-primary)">➔</strong> <span style="font-weight:700">${eNew ? eNew.nombre : newV}</span>`;
              } else if (h.campo_modificado.startsWith('tiempo_estimado') || h.campo_modificado.startsWith('tiempo_dedicado')) {
                  const minVAnterior = prev === '*' ? 0 : Math.round(parseFloat(prev || 0) * 60);
                  const minVNuevo = Math.round(parseFloat(newV || 0) * 60);
                  const sumado = minVNuevo - minVAnterior;
-                 accionTexto = `Anterior: ${minVAnterior} min ➔ Nuevo total: ${minVNuevo} min (${sumado > 0 ? '+'+sumado : sumado} min)`;
+                 accionTexto = `Ajuste de tiempo: <strong style="color:var(--text-primary)">${minVNuevo} min</strong> (${sumado >= 0 ? '+'+sumado : sumado} min)`;
              } else if (h.campo_modificado.startsWith('en_proceso')) {
-                 accionTexto = `En Proceso: ${prev == 1 ? 'SÍ' : 'NO'} ➔ ${newV == 1 ? 'SÍ' : 'NO'}`;
+                 accionTexto = `Estado 'En Proceso': <strong style="color:var(--accent-secondary)">${newV == 1 ? 'ACTIVADO' : 'DESACTIVADO'}</strong>`;
              } else {
-                 accionTexto = `${prev} ➔ ${newV}`;
+                 accionTexto = `<span style="color:var(--text-secondary)">${prev}</span> ➔ <strong style="color:var(--text-primary)">${newV}</strong>`;
              }
 
-             // Color dinámico por campo
-             let badgeColor = '#475569';
-             let badgeBg = '#e2e8f0';
-             if (h.campo_modificado.includes('estado')) { badgeBg = 'rgba(59,130,246,0.1)'; badgeColor = '#3b82f6'; }
-             if (h.campo_modificado.includes('tiempo')) { badgeBg = 'rgba(16,185,129,0.1)'; badgeColor = '#10b981'; }
-             if (h.campo_modificado.includes('proceso')) { badgeBg = 'rgba(139,92,246,0.1)'; badgeColor = '#8b5cf6'; }
+             // Color dinámico por campo para el badge
+             let badgeClass = 'badge-tonal-slate';
+             if (h.campo_modificado.includes('estado')) badgeClass = 'badge-tonal-blue';
+             if (h.campo_modificado.includes('tiempo')) badgeClass = 'badge-tonal-green';
+             if (h.campo_modificado.includes('proceso')) badgeClass = 'badge-tonal-orange';
 
              return `
                <tr>
-                  <td style="font-size:0.8rem">${h.fecha_cambio}</td>
-                  <td><span class="badge" style="background:${badgeBg}; color:${badgeColor};">${h.campo_modificado.replace('_', ' ')}</span></td>
-                  <td>${accionTexto}</td>
+                  <td style="font-size:0.85rem; color:var(--text-secondary); font-weight:500;">${h.fecha_cambio}</td>
+                  <td><span class="badge ${badgeClass}" style="text-transform:uppercase; font-size:0.65rem;">${h.campo_modificado.replace('_', ' ')}</span></td>
+                  <td style="font-size:0.9rem;">${accionTexto}</td>
                </tr>`;
             }).join('');
         }
@@ -1455,17 +1497,31 @@ function renderInsightCharts(diasTrabajados, auditoria) {
         data: {
             labels: labelsTime.length ? labelsTime : ['Sin datos'],
             datasets: [{
-                label: 'Horas Dedicadas Hito Diario',
-                data: dataTime.length ? dataTime : [0],
+                label: 'Esfuerzo Diario (Min)',
+                data: labelsTime.length ? dataTime.map(h => Math.round(h * 60)) : [0],
                 borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59,130,246,0.1)',
-                tension: 0.3,
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                pointBackgroundColor: '#3b82f6',
+                pointRadius: 4,
+                tension: 0.4,
                 fill: true
             }]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            scales: { y: { beginAtZero: true } }
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) { return ` ${context.raw} minutos`; }
+                    }
+                }
+            },
+            scales: { 
+                y: { beginAtZero: true, grid: { display: false } },
+                x: { grid: { display: false } }
+            }
         }
     });
 
@@ -1493,6 +1549,202 @@ function renderInsightCharts(diasTrabajados, auditoria) {
         },
         options: {
             responsive: true, maintainAspectRatio: false
+        }
+    });
+}
+
+// Renderizar Dashboard Mensual (Rediseñado)
+async function renderMensualDashboard() {
+    const monthFilter = document.getElementById('mensual-month-filter');
+    let mes = monthFilter ? monthFilter.value : '';
+
+    try {
+        let url = `mensual.php`;
+        if (mes) url += `?mes=${mes}`;
+        const res = await apiGet(url);
+        if (!res || res.error) return;
+
+        // Poblar filtro de meses si está vacío
+        if (monthFilter && monthFilter.options.length === 0) {
+            monthFilter.innerHTML = res.meses.map(m => `<option value="${m}">${m}</option>`).join('');
+            if (res.seleccion) monthFilter.value = res.seleccion;
+        }
+
+        // 1. Actualizar KPIs Principales
+        if (res.resumen) {
+            document.getElementById('res-kpi-importados').innerText = res.resumen.importados;
+            document.getElementById('res-kpi-trabajados').innerText = res.resumen.trabajados;
+            document.getElementById('res-kpi-ratio').innerText = `${res.resumen.eficiencia}%`;
+            document.getElementById('res-kpi-defectos').innerText = res.resumen.defectos;
+            document.getElementById('res-kpi-stale').innerText = `${res.resumen.avg_stale}d`;
+        }
+
+        // 2. Renderizar Tabla Detallada
+        const tbody = document.getElementById('mensual-table-body');
+        if (tbody) {
+            if (!res.semanal || res.semanal.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:2rem;">Sin datos para este periodo</td></tr>';
+            } else {
+                tbody.innerHTML = res.semanal.map(s => {
+                    const inicio = s.fecha_inicio.split('-').reverse().slice(0,2).join('/');
+                    const fin = s.fecha_fin.split('-').reverse().slice(0,2).join('/');
+                    const qRatio = s.trabajados > 0 ? Math.round((s.defectos / s.trabajados) * 100) : 0;
+                    return `
+                        <tr>
+                            <td style="font-weight:700; color:var(--accent-primary);">Semana ${s.semana_id.toString().slice(-2)}</td>
+                            <td style="font-size:0.85rem; color:var(--text-secondary);">${inicio} - ${fin}</td>
+                            <td>${s.importados}</td>
+                            <td>${s.trabajados}</td>
+                            <td style="color:var(--status-reabierto); font-weight:600;">${s.defectos}</td>
+                            <td style="color:var(--status-corregido); font-weight:600;">${s.requerimientos}</td>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:0.8rem; min-width:30px;">${qRatio}%</span>
+                                    <div style="flex:1; height:6px; background:#e2e8f0; border-radius:3px; overflow:hidden;">
+                                        <div style="width:${qRatio}%; height:100%; background:var(--status-reabierto);"></div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        // 3. Renderizar Gráficos
+        renderTrendChart(res.trend);
+        renderTypeChart(res.resumen);
+        renderWeeklyComparisonChart(res.semanal);
+        renderPatternChart(res.patrones);
+
+        updateChartsTheme();
+    } catch (e) {
+        console.error('Error al cargar dashboard mensual:', e);
+    }
+}
+
+function renderTrendChart(trendData) {
+    const ctx = document.getElementById('chart-mensual-trend');
+    if (!ctx) return;
+    if (charts['chart-mensual-trend']) charts['chart-mensual-trend'].destroy();
+
+    charts['chart-mensual-trend'] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: trendData.map(d => d.fecha.split('-')[2]), // Solo el día
+            datasets: [{
+                label: 'Tickets Gestionados',
+                data: trendData.map(d => d.trabajados),
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointBackgroundColor: '#3b82f6'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { title: { display: true, text: 'Día del Mes' } },
+                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        title: (items) => `Día ${items[0].label}`,
+                        label: (item) => ` ${item.raw} tickets gestionados`
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderTypeChart(resumen) {
+    const ctx = document.getElementById('chart-mensual-tipos');
+    if (!ctx) return;
+    if (charts['chart-mensual-tipos']) charts['chart-mensual-tipos'].destroy();
+
+    const otros = Math.max(0, resumen.trabajados - resumen.defectos - resumen.requerimientos);
+
+    charts['chart-mensual-tipos'] = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Defectos', 'Requerimientos', 'Otros'],
+            datasets: [{
+                data: [resumen.defectos, resumen.requerimientos, otros],
+                backgroundColor: ['#ef4444', '#10b981', '#94a3b8'],
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '70%',
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, padding: 20 } }
+            }
+        }
+    });
+}
+
+function renderWeeklyComparisonChart(semanal) {
+    const ctx = document.getElementById('chart-mensual-semanal');
+    if (!ctx) return;
+    if (charts['chart-mensual-semanal']) charts['chart-mensual-semanal'].destroy();
+
+    charts['chart-mensual-semanal'] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: semanal.map(s => `Sem ${s.semana_id.toString().slice(-2)}`),
+            datasets: [
+                {
+                    label: 'Importados (Radar)',
+                    data: semanal.map(s => s.importados),
+                    backgroundColor: '#cbd5e1',
+                    borderRadius: 4
+                },
+                {
+                    label: 'Trabajados (Gestión)',
+                    data: semanal.map(s => s.trabajados),
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+}
+
+function renderPatternChart(patrones) {
+    const ctx = document.getElementById('chart-mensual-patron');
+    if (!ctx) return;
+    if (charts['chart-mensual-patron']) charts['chart-mensual-patron'].destroy();
+
+    charts['chart-mensual-patron'] = new Chart(ctx, {
+        type: 'radar',
+        data: {
+            labels: patrones.map(p => p.nombre),
+            datasets: [{
+                label: 'Promedio Tickets/Día',
+                data: patrones.map(p => p.promedio),
+                backgroundColor: 'rgba(139, 92, 246, 0.2)',
+                borderColor: '#8b5cf6',
+                pointBackgroundColor: '#8b5cf6',
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { r: { beginAtZero: true, ticks: { display: false } } },
+            plugins: { legend: { display: false } }
         }
     });
 }

@@ -12,11 +12,15 @@ if ($method === 'GET') {
         // Devuelve count de tickets gestionados agrupados por fecha
         // Usado por el gráfico histórico de productividad
         $stmt = $pdo->query("
-            SELECT fecha, COUNT(*) AS cantidad,
-                   SUM(tiempo_dedicado) AS horas_totales
-            FROM gestion_diaria
-            WHERE fue_gestionado = 1
-            GROUP BY fecha
+            SELECT * FROM (
+                SELECT fecha, COUNT(*) AS cantidad,
+                       SUM(tiempo_dedicado) AS horas_totales
+                FROM gestion_diaria
+                WHERE fue_gestionado = 1 OR tiempo_dedicado > 0 OR tiempo_estimado > 0 OR en_proceso = 1
+                GROUP BY fecha
+                ORDER BY fecha DESC
+                LIMIT 30
+            ) sub
             ORDER BY fecha ASC
         ");
         jsonResponse($stmt->fetchAll());

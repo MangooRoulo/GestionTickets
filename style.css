@@ -306,7 +306,7 @@ header {
 
 .chart-grid-bottom {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 1.5rem;
     margin-bottom: 2rem;
 }
@@ -720,3 +720,127 @@ tr:hover {
     color: var(--text-secondary);
     padding: 0 4px;
 }
+
+/* Rediseño Insight Center */
+.insight-header-card {
+    background: linear-gradient(135deg, var(--card-bg), var(--bg-color));
+    padding: 2rem;
+    border-radius: 1.25rem;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.insight-header-card::before {
+    content: '';
+    position: absolute;
+    top: -50px;
+    right: -50px;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, var(--accent-primary) 0%, transparent 70%);
+    opacity: 0.05;
+    pointer-events: none;
+}
+
+.insight-header-main {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.insight-ticket-badge {
+    background: var(--accent-primary);
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 800;
+    padding: 0.75rem 1.25rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.insight-title-group {
+    flex: 1;
+}
+
+.insight-resumen {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.insight-meta-info {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.insight-meta-item {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.insight-meta-item strong {
+    color: var(--text-primary);
+}
+
+.insight-kpi {
+    position: relative;
+    overflow: hidden;
+}
+
+.kpi-sub {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+    font-weight: 500;
+}
+
+.insight-chart {
+    backdrop-filter: blur(8px);
+    background: rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"] .insight-chart {
+    background: rgba(30, 41, 59, 0.7);
+}
+
+.insight-log-card {
+    border-top: 4px solid var(--accent-primary);
+}
+
+.insight-log-header {
+    margin-bottom: 1.5rem;
+}
+
+.insight-log-table th {
+    background: transparent;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+}
+
+.insight-log-table td {
+    padding: 1.25rem 1rem;
+}
+
+/* Animaciones */
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.insight-header-card, .insight-kpi, .insight-chart, .insight-log-card {
+    animation: slideUp 0.5s ease backwards;
+}
+
+.insight-kpi:nth-child(1) { animation-delay: 0.1s; }
+.insight-kpi:nth-child(2) { animation-delay: 0.2s; }
+.insight-kpi:nth-child(3) { animation-delay: 0.3s; }
+.insight-kpi:nth-child(4) { animation-delay: 0.4s; }
